@@ -1,0 +1,13 @@
+{
+ :server-port 8080
+ :max-connections 42
+ :search-timeout 10000
+ :worker-timeout 11000
+ :target-api {
+              :endpoint "https://api.stackexchange.com/2.2/search"
+              :pagesize 10
+              :sort "creation"
+              :order "desc"
+              :site "stackoverflow"
+             }
+}
