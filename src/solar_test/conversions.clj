@@ -25,8 +25,6 @@
 (defn tag-stats
   "Calculate statistics separately for each tag."
   [res]
-  (println "=========== res ==========")
-  (clojure.pprint/pprint res)
   (->>
     res
     (map prepare-tag)

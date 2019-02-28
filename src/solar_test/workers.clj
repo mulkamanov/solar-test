@@ -1,7 +1,7 @@
 (ns solar-test.workers
   (:gen-class)
   (:require [clojure.core.async :refer [chan timeout go-loop pub sub unsub
-                                        onto-chan alt!! close! <! >!]
+                                        onto-chan alt!! close! <!! >!! thread]
                                 :as async]
             [mount.core :refer [defstate]]
             [solar-test.config :refer [config]]
@@ -29,15 +29,16 @@
   (let [in-chan (chan)
         out-chan (chan)]
     (dotimes [_ (:max-connections config)]
-      (go-loop [req (<! in-chan)]
-        (if (nil? req)
-          (close! out-chan)
-          (do
-            (->>
-              req
-              f
-              (>! out-chan))
-            (recur (<! in-chan))))))
+      (thread
+        (loop [req (<!! in-chan)]
+          (if (nil? req)
+            (close! out-chan)
+            (do
+              (->>
+               req
+               f
+               (>!! out-chan))
+              (recur (<!! in-chan)))))))
     {:in-chan in-chan
      :out-chan out-chan
      :out-pub (pub out-chan :uuid)}))
@@ -54,6 +55,7 @@
   (let [{:keys [in-chan out-chan out-pub]} pool-of-workers
         uuid (java.util.UUID/randomUUID)
         mid-chan (chan)
+        limited-mid-chan (async/take (count tags) mid-chan)
         timeout-chan (timeout (:worker-timeout config))]
     (sub out-pub uuid mid-chan)
     (onto-chan in-chan
@@ -61,10 +63,8 @@
                false)
     (loop [res []]
       (->
-        tags
-        count
-        (async/take mid-chan)
-        (alt!! ([r] r) timeout-chan nil)
+        (alt!! limited-mid-chan ([r] r)
+               timeout-chan nil)
         (as->
           $
           (if $
